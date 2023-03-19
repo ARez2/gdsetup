@@ -52,6 +52,10 @@ struct InitArgs {
     /// Path to an existing Godot project folder
     #[arg(long = "path", short = 'p', value_name = "SPECIFIC PATH")]
     path2: Option<PathBuf>,
+
+    /// Whether to use the 'scons' command to instantly build the project once it has been initialized.
+    #[arg(long, short, default_value_t = true)]
+    build: bool,
 }
 
 
@@ -100,7 +104,7 @@ fn main() -> Result<(), Error> {
             Commands::Add(nameargs) => add_extension(nameargs),
         }
     } else {
-        init(InitArgs { path: None, path2: None}, args.name)
+        init(InitArgs { path: None, path2: None, build: true}, args.name)
     }
 
 }
@@ -124,8 +128,8 @@ fn init(pathargs: InitArgs, projectname: Option<String>) -> Result<(), Error> {
         return Err(Error::msg("Missing either a --path (-p) to an exisiting folder or a name for a new one."))
     };
 
-    debug!("Testing whether the 'git' command exists");
-    let git = Command::new("git").output().with_context(|| "Tried to find git").unwrap();
+    let git_exists = Command::new("git").output().with_context(|| "Tried to find git").is_ok();
+    debug!("Testing whether the 'git' command exists: {}", git_exists);
 
     let current_dir = std::env::current_dir().unwrap_or_default();
 
@@ -207,24 +211,31 @@ fn init(pathargs: InitArgs, projectname: Option<String>) -> Result<(), Error> {
         }
     };
 
-    info!("Running 'git init'");
-    let output = Command::new(basecmd.0).arg(basecmd.1)
-        .current_dir(pathstr)
-        .arg("git").arg("init").output().with_context(|| "Tried to 'git init'")?;
-    _ = print_output(output);
-    
-    info!("Running 'git submodule add https://github.com/godotengine/godot-cpp.git'");
-    let output = Command::new(basecmd.0).arg(basecmd.1)
-        .current_dir(pathstr)
-        .arg("git").args(["submodule", "add", "https://github.com/godotengine/godot-cpp.git"]).output().with_context(|| "Tried to find git")?;
-    _ = print_output(output);
-
-    info!("Running 'scons'");
-    let output = Command::new(basecmd.0).arg(basecmd.1)
-        .current_dir(pathstr)
-        .arg("scons").output();
-    if let std::result::Result::Ok(output) = output {
-        //_ = print_output(output);
+    // Git does not exist, we can't get the godot-cpp submodule and therefore can't build it
+    if git_exists {
+        info!("Running 'git init'");
+        let output = Command::new(basecmd.0).arg(basecmd.1)
+            .current_dir(pathstr)
+            .arg("git").arg("init").output().with_context(|| "Tried to 'git init'")?;
+        _ = print_output(output);
+        
+        info!("Running 'git submodule add https://github.com/godotengine/godot-cpp.git'");
+        let output = Command::new(basecmd.0).arg(basecmd.1)
+            .current_dir(pathstr)
+            .arg("git").args(["submodule", "add", "https://github.com/godotengine/godot-cpp.git"]).output().with_context(|| "Tried to find git")?;
+        _ = print_output(output);
+        
+        if pathargs.build {
+            info!("Running 'scons'");
+            let output = Command::new(basecmd.0).arg(basecmd.1)
+                .current_dir(pathstr)
+                .arg("scons").output();
+            if let std::result::Result::Ok(output) = output {
+                //_ = print_output(output);
+            };
+        };
+    } else {
+        warn!("Did not find the 'git' command. Make sure git is installed to get the 'godot-cpp' submodule and build-support via scons")
     };
 
     Ok(())
