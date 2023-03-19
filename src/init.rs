@@ -47,10 +47,10 @@ pub fn init(pathargs: InitArgs, projectname: Option<String>, classname: &str, go
 
     // Create the 'godot' folder
     let godot_folder = path.clone().join(godot_dir);
-    let godot_folder_str = godot_folder.clone().display().to_string();
+    let godot_folder_str = godot_folder.display().to_string();
     std::fs::create_dir(godot_folder.clone()).with_context(|| format!("Failed to create directory '{}'", godot_folder_str))?;
 
-    let project_exists = read.iter().find(|f| f.file_name() == "project.godot").is_some();
+    let project_exists = read.iter().any(|f| f.file_name() == "project.godot");
     // If there's a project.godot: Move everything to 'godot/'
     if project_exists {
         info!("Found project.godot. Moving everything inside '{}' into '{}'", pathstr, godot_folder_str);
@@ -71,16 +71,16 @@ pub fn init(pathargs: InitArgs, projectname: Option<String>, classname: &str, go
     };
 
     // Create the godot-relevant files for the extension
-    std::fs::write(godot_folder.clone().join(format!("{}.gdextension", classname)), codegen::generate_gdextension(classname))
+    std::fs::write(godot_folder.join(format!("{}.gdextension", classname)), codegen::generate_gdextension(classname))
         .with_context(||  format!("Tried creating the '{}.gdextension' file.", classname))?;
-    std::fs::create_dir(godot_folder.clone().join(".godot"))
+    std::fs::create_dir(godot_folder.join(".godot"))
         .with_context(|| "Tried creating a .godot folder")?;
-    std::fs::write(godot_folder.clone().join(".godot").join("extension_list.cfg"), codegen::generate_gdextension_list(classname))
+    std::fs::write(godot_folder.join(".godot").join("extension_list.cfg"), codegen::generate_gdextension_list(classname))
         .with_context(|| "Tried creating '.godot/extension_list.cfg'")?;
     
     // Create the 'src/' folder
     let src_folder = path.clone().join(src_dir);
-    let src_folder_str = src_folder.clone().display().to_string();
+    let src_folder_str = src_folder.display().to_string();
     std::fs::create_dir(src_folder.clone()).with_context(|| format!("Failed to create directory '{}'", src_folder_str))?;
 
     // Create compilation files
@@ -88,11 +88,11 @@ pub fn init(pathargs: InitArgs, projectname: Option<String>, classname: &str, go
     std::fs::write(path.clone().join("CMakeLists.txt"), codegen::generate_cmakelists(classname))?;
 
     // Create the registration files
-    std::fs::write(src_folder.clone().join("register_types.cpp"), codegen::generate_register_cpp(classname))?;
-    std::fs::write(src_folder.clone().join("register_types.h"), codegen::generate_register_h(classname))?;
+    std::fs::write(src_folder.join("register_types.cpp"), codegen::generate_register_cpp(classname))?;
+    std::fs::write(src_folder.join("register_types.h"), codegen::generate_register_h(classname))?;
     // Create the class files
-    std::fs::write(src_folder.clone().join(format!("{}.cpp", classname)), codegen::generate_class_cpp(classname))?;
-    std::fs::write(src_folder.clone().join(format!("{}.h", classname)), codegen::generate_class_h(classname))?;
+    std::fs::write(src_folder.join(format!("{}.cpp", classname)), codegen::generate_class_cpp(classname))?;
+    std::fs::write(src_folder.join(format!("{}.h", classname)), codegen::generate_class_h(classname))?;
 
 
     let basecmd = {
@@ -124,7 +124,7 @@ pub fn init(pathargs: InitArgs, projectname: Option<String>, classname: &str, go
             let output = Command::new(basecmd.0).arg(basecmd.1)
                 .current_dir(pathstr)
                 .arg("scons").output();
-            if let std::result::Result::Ok(output) = output {
+            if let std::result::Result::Ok(_output) = output {
                 //_ = print_output(output);
             };
         };

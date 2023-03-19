@@ -4,6 +4,6 @@ use crate::AddArgs;
 
 
 
-pub fn add_extension(nameargs: AddArgs) -> Result<(), Error> {
+pub fn add_extension(_nameargs: AddArgs) -> Result<(), Error> {
     Ok(())
 }

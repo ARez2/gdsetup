@@ -3,6 +3,9 @@ name = "gdsetup"
 version = "0.1.0"
 edition = "2021"
 authors = ["ARez"]
+readme = "README.md"
+repository = "https://github.com/ARez2/gdsetup"
+description = "A CLI tool for creating and managing Godot GDExtension projects"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -11,3 +14,6 @@ anyhow = "1.0.70"
 clap = { version = "4.1.10", features = ["derive", "cargo"] }
 env_logger = "0.10.0"
 log = "0.4.17"
+
+[profile.final]
+inherits = "release"

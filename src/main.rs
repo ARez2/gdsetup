@@ -6,9 +6,9 @@ use log::debug;
 
 use gdsetup::{init, Commands, GDSetup, InitArgs, add_extension, rename};
 
-const GODOT_DIR: &'static str = "godot";
-const SRC_DIR: &'static str = "src";
-const CLASS_NAME: &'static str = "example";
+const GODOT_DIR: &str = "godot";
+const SRC_DIR: &str = "src";
+const CLASS_NAME: &str = "example";
 const DEFAULT_PROJECTNAME: String = String::new();
 
 
