@@ -3,6 +3,7 @@ use std::{path::{PathBuf, self}, str::FromStr};
 use anyhow::{Result, Error, Context, Ok};
 use clap::{Args, Parser, Subcommand, builder};
 use log::{debug, info, warn};
+use std::process::Command;
 
 use gdsetup::codegen;
 
@@ -34,7 +35,12 @@ struct GDSetup {
 }
 
 #[derive(Args, Debug)]
-struct NameArgs {
+struct RenameArgs {
+    name: String,
+}
+
+#[derive(Args, Debug)]
+struct AddArgs {
     name: String,
 }
 
@@ -54,12 +60,10 @@ enum Commands {
     /// IF project.godot: Move everything into godot/    ELSE: Creates the folders and example dummy files
     Init(InitArgs),
     /// Renames all occurences of the extension name (or the files)
-    Rename(NameArgs),
+    Rename(RenameArgs),
     /// Creates another GDExtension module
-    Add(NameArgs),
+    Add(AddArgs),
 }
-
-
 
 
 // Create folders:
@@ -79,6 +83,8 @@ enum Commands {
 //      gdsetup [init path/to/folder/]         IF project.godot: Move everything into godot/    ELSE: Creates the folders and example dummy files
 //      gdsetup rename NewExtensionName        Renames all occurences of the extension name (or the files)
 //      gdsetup add NewExtensionName           Creates another Extension
+
+
 
 fn main() -> Result<(), Error> {
     let args = GDSetup::parse();
@@ -117,6 +123,9 @@ fn init(pathargs: InitArgs, projectname: Option<String>) -> Result<(), Error> {
     if p.is_none() && projectname.is_none() {
         return Err(Error::msg("Missing either a --path (-p) to an exisiting folder or a name for a new one."))
     };
+
+    debug!("Testing whether the 'git' command exists");
+    let git = Command::new("git").output().with_context(|| "Tried to find git").unwrap();
 
     let current_dir = std::env::current_dir().unwrap_or_default();
 
@@ -162,11 +171,23 @@ fn init(pathargs: InitArgs, projectname: Option<String>) -> Result<(), Error> {
             std::fs::remove_file(filename).with_context(|| format!("Failed to remove '{:?}' from {}", file.file_name().to_str().unwrap(), pathstr))?;
         };
     };
+
+    // Create the godot-relevant files for the extension
+    std::fs::write(godot_folder.clone().join(format!("{}.gdextension", CLASS_NAME)), codegen::generate_gdextension(CLASS_NAME))
+        .with_context(||  format!("Tried creating the '{}.gdextension' file.", CLASS_NAME))?;
+    std::fs::create_dir(godot_folder.clone().join(".godot"))
+        .with_context(|| "Tried creating a .godot folder")?;
+    std::fs::write(godot_folder.clone().join(".godot").join("extension_list.cfg"), codegen::generate_gdextension_list(CLASS_NAME))
+        .with_context(|| "Tried creating '.godot/extension_list.cfg'")?;
     
     // Create the 'src/' folder
     let src_folder = path.clone().join(SRC_DIR);
     let src_folder_str = src_folder.clone().display().to_string();
     std::fs::create_dir(src_folder.clone()).with_context(|| format!("Failed to create directory '{}'", src_folder_str))?;
+
+    // Create compilation files
+    std::fs::write(path.clone().join("SConstruct"), codegen::generate_sconstruct(CLASS_NAME))?;
+    std::fs::write(path.clone().join("CMakeLists.txt"), codegen::generate_cmakelists(CLASS_NAME))?;
 
     // Create the registration files
     std::fs::write(src_folder.clone().join("register_types.cpp"), codegen::generate_register_cpp(CLASS_NAME))?;
@@ -174,16 +195,58 @@ fn init(pathargs: InitArgs, projectname: Option<String>) -> Result<(), Error> {
     // Create the class files
     std::fs::write(src_folder.clone().join(format!("{}.cpp", CLASS_NAME)), codegen::generate_class_cpp(CLASS_NAME))?;
     std::fs::write(src_folder.clone().join(format!("{}.h", CLASS_NAME)), codegen::generate_class_h(CLASS_NAME))?;
+
+
+    let basecmd = {
+        if cfg!(target_family = "windows") {
+            ("cmd", "/C")
+        } else if cfg!(target_family = "unix") {
+            ("sh", "-c")
+        } else { // WASM - also unix??
+            ("sh", "-c")
+        }
+    };
+
+    info!("Running 'git init'");
+    let output = Command::new(basecmd.0).arg(basecmd.1)
+        .current_dir(pathstr)
+        .arg("git").arg("init").output().with_context(|| "Tried to 'git init'")?;
+    _ = print_output(output);
+    
+    info!("Running 'git submodule add https://github.com/godotengine/godot-cpp.git'");
+    let output = Command::new(basecmd.0).arg(basecmd.1)
+        .current_dir(pathstr)
+        .arg("git").args(["submodule", "add", "https://github.com/godotengine/godot-cpp.git"]).output().with_context(|| "Tried to find git")?;
+    _ = print_output(output);
+
+    info!("Running 'scons'");
+    let output = Command::new(basecmd.0).arg(basecmd.1)
+        .current_dir(pathstr)
+        .arg("scons").output();
+    if let std::result::Result::Ok(output) = output {
+        //_ = print_output(output);
+    };
+
     Ok(())
 }
 
 
-
-fn rename(nameargs: NameArgs) -> Result<(), Error> {
+fn print_output(output: std::process::Output) -> Result<(), Error> {
+    if !output.stdout.is_empty() {
+        debug!("{}", String::from_utf8(output.stdout)?);
+    };
+    if !output.stderr.is_empty() {
+        debug!("{}", String::from_utf8(output.stderr)?);
+    };
     Ok(())
 }
 
 
-fn add_extension(nameargs: NameArgs) -> Result<(), Error> {
+fn rename(nameargs: RenameArgs) -> Result<(), Error> {
+    Ok(())
+}
+
+
+fn add_extension(nameargs: AddArgs) -> Result<(), Error> {
     Ok(())
 }
