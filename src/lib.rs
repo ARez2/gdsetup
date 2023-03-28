@@ -24,3 +24,13 @@ pub fn print_output(output: std::process::Output) -> Result<(), Error> {
     };
     Ok(())
 }
+
+pub fn get_basecommand() -> (String, String) {
+    if cfg!(target_family = "windows") {
+        ("cmd".to_string(), "/C".to_string())
+    } else if cfg!(target_family = "unix") {
+        ("sh".to_string(), "-c".to_string())
+    } else { // WASM - also unix??
+        ("sh".to_string(), "-c".to_string())
+    }
+}

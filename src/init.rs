@@ -1,6 +1,6 @@
 use std::process::Command;
 
-use crate::{cli::*, codegen, print_output};
+use crate::{cli::*, codegen, print_output, get_basecommand};
 use anyhow::{Result, Error, Context, Ok};
 use log::{info, debug, warn};
 
@@ -25,24 +25,29 @@ pub fn init(pathargs: InitArgs, projectname: Option<String>, classname: &str, go
     let git_exists = Command::new("git").output().with_context(|| "Tried to find git").is_ok();
     debug!("Testing whether the 'git' command exists: {}", git_exists);
 
-    let current_dir = std::env::current_dir().unwrap_or_default();
-
+    let current_dir = std::env::current_dir().with_context(|| "Getting current directory.").unwrap_or_default();
     // Create a new project folder
     let path = if let Some(name) = projectname {
         let dir = current_dir.join(name);
         let _d = dir.clone();
         let dirname = _d.display();
         info!("Creating new project folder '{}'", dirname);
-        std::fs::create_dir(dir.clone()).with_context(|| format!("Tried to create a new folder '{}'", dirname))?;
+        if let std::result::Result::Ok(_) = std::fs::create_dir(dir.clone()).with_context(|| format!("Tried to create a new folder '{}'", dirname)) {
+        };
         dir
     } else {
-        match p {
-            Some(path) => path,
+        let dir = match p {
+            Some(path) => current_dir.join(path),
             None => current_dir,
-        }
+        };
+        let _d = dir.clone();
+        let dirname = _d.display();
+        if let std::result::Result::Ok(_) = std::fs::create_dir(dir.clone()).with_context(|| format!("Tried to create a new folder '{}'", dirname)) {
+        };
+        dir
     };
     let pathstr = path.to_str().unwrap();
-    let read = std::fs::read_dir(path.clone())?;
+    let read = std::fs::read_dir(path.clone()).with_context(|| format!("Tried reading {}", pathstr))?;
     let read = read.into_iter().flatten().collect::<Vec<std::fs::DirEntry>>();
 
     // Create the 'godot' folder
@@ -94,16 +99,8 @@ pub fn init(pathargs: InitArgs, projectname: Option<String>, classname: &str, go
     std::fs::write(src_folder.join(format!("{}.cpp", classname)), codegen::generate_class_cpp(classname))?;
     std::fs::write(src_folder.join(format!("{}.h", classname)), codegen::generate_class_h(classname))?;
 
-
-    let basecmd = {
-        if cfg!(target_family = "windows") {
-            ("cmd", "/C")
-        } else if cfg!(target_family = "unix") {
-            ("sh", "-c")
-        } else { // WASM - also unix??
-            ("sh", "-c")
-        }
-    };
+    let basecmd = get_basecommand();
+    let basecmd = (basecmd.0.as_str(), basecmd.1.as_str());
 
     // Git does not exist, we can't get the godot-cpp submodule and therefore can't build it
     if git_exists {
@@ -119,7 +116,7 @@ pub fn init(pathargs: InitArgs, projectname: Option<String>, classname: &str, go
             .arg("git").args(["submodule", "add", "https://github.com/godotengine/godot-cpp.git"]).output().with_context(|| "Tried to find git")?;
         _ = print_output(output);
         
-        if pathargs.build {
+        if !pathargs.nobuild {
             info!("Running 'scons'");
             let output = Command::new(basecmd.0).arg(basecmd.1)
                 .current_dir(pathstr)

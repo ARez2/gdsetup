@@ -16,7 +16,9 @@ pub fn generate_register_h(classname: &str) -> String {
 
 using namespace godot;
 
+// Note: It is not recommended to rename that function, except you know what you are doing
 void initialize_{}_module(ModuleInitializationLevel p_level);
+// Note: It is not recommended to rename that function, except you know what you are doing
 void uninitialize_{}_module(ModuleInitializationLevel p_level);
 
 #endif // {}_REGISTER_TYPES_H", classname.to_uppercase(), classname.to_uppercase(), classname, classname, classname.to_uppercase())
@@ -38,6 +40,7 @@ pub fn generate_register_cpp(classname: &str) -> String {
 
 using namespace godot;
 
+// Note: It is not recommended to rename that function, except you know what you are doing
 void initialize_{}_module(ModuleInitializationLevel p_level) {{
     if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {{
         return;
@@ -46,6 +49,7 @@ void initialize_{}_module(ModuleInitializationLevel p_level) {{
     ClassDB::register_class<{}>();
 }}
 
+// Note: It is not recommended to rename that function, except you know what you are doing
 void uninitialize_{}_module(ModuleInitializationLevel p_level) {{
     if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {{
         return;
@@ -54,6 +58,7 @@ void uninitialize_{}_module(ModuleInitializationLevel p_level) {{
 
 extern \"C\" {{
 // Initialization.
+// Note: It is not recommended to rename that function, except you know what you are doing
 GDExtensionBool GDE_EXPORT {}_library_init(const GDExtensionInterface *p_interface, GDExtensionClassLibraryPtr p_library, GDExtensionInitialization *r_initialization) {{
     godot::GDExtensionBinding::InitObject init_obj(p_interface, p_library, r_initialization);
 
@@ -338,7 +343,6 @@ set_property(TARGET ${{PROJECT_NAME}} PROPERTY OUTPUT_NAME \"{}\")
 pub fn generate_gdextension(classname: &str) -> String {
     format!("
 [configuration]
-
 entry_symbol = \"{}_library_init\"
 
 [libraries]

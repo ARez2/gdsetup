@@ -46,7 +46,7 @@ fn main() -> Result<(), Error> {
             Commands::Add(nameargs) => add_extension(nameargs),
         }
     } else {
-        init(InitArgs { path: None, path2: None, build: true}, args.name, CLASS_NAME, GODOT_DIR, SRC_DIR)
+        init(InitArgs { path: None, path2: None, nobuild: false}, args.name, CLASS_NAME, GODOT_DIR, SRC_DIR)
     }
 
 }
